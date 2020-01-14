@@ -314,6 +314,15 @@ order(r->order), root(r), height(h){
 
 template<typename V>
 Bptree<V>::~Bptree(){
+	if (!this->root->isLeaf){
+		for (int i=0;i<this->root->size;i++)
+			delete ((InternalNode*)this->root)->children[i];
+		delete this->root->children;
+		delete this->root->keys;
+	} else {
+		delete ((LeafNode*)this->root)->values;
+		delete this->root->keys;
+	}
 }
 
 template<typename V>
@@ -402,6 +411,14 @@ Bptree<V>* Bptree<V>::splitWithKeyAtLeast(int key){
 
 template<typename V>
 Bptree<V>* Bptree<V>::splitWithKeySmallerThan(int key){
+	// maintain list of bptree that smaller than key
+	// find the node recursively
+		// target = i-th children
+		// if left part of the node is large enough
+		// split the left part of the node as bptree
+		// else put all left children as bptree into list
+		// go down to i-th children
+	// join all bptrees
 	return new Bptree();
 }
 
