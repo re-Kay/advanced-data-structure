@@ -63,6 +63,17 @@ class Bptree{
 					this->children[0] = ch;
 					this->size++;
 				}
+				void eraseFromNode(int key){
+					int i;
+					for(i=0; i<this->size && this->keys[i] != key; i++);
+					if (i < this->size){ //found
+						for (int j=i; j<this->size; j++){
+							this->keys[j] = this->keys[j+1];
+							this->children[j] = this->children[j+1];
+						}
+						this->size --;
+					}
+				}
 				// only the left node call this method
 				// call only one of the nodes underflow, and have >= (1+order/2) *2 keys
 				void redistributeWithNode(InternalNode* right){
@@ -102,14 +113,7 @@ class Bptree{
 						this->children[this->size + i]=right->children[i];
 					}
 					this->size += right->size;
-					InternalNode* parent = right->parent;
-					for (i=0;i<parent->size && parent->children[i]!=right; i++);
-					for (int j=i; j<parent->size; j++){ // update parent
-						parent->keys[j] = parent->keys[j+1];
-						parent->children[j] = parent->children[j+1];	
-					}
-					parent->size --;
-					~right();
+					delete right;
 				}
 		};
 
@@ -152,6 +156,17 @@ class Bptree{
 					this->values[i+1] = value;
 					this->size++;
 				}
+				void eraseFromNode(int key){
+					int i;
+					for(i=0; i<this->size && this->keys[i] != key; i++);
+					if (i < this->size){ //found
+						for (int j=i; j < this->size; j++){
+							this->keys[j] = this->keys[j+1];
+							this->values[j] = this->values[j+1];
+						}
+						this->size --;
+					}
+				}
 				void redistributeWithNode(LeafNode* right){
 					int numToMove = (this->size + right->size)/2 - this->size;
 					if (numToMove > 0){
@@ -187,26 +202,20 @@ class Bptree{
 					}
 					this->size += right->size;
 					this->next = right->next;
-					InternalNode* parent = right->parent;
-					for (i=0;i<parent->size && parent->children[i]!=right; i++);
-					for (int j=i; j<parent->size; j++){ // update parent
-						parent->keys[j] = parent->keys[j+1];
-						parent->children[j] = parent->children[j+1];	
-					}
-					parent->size --;
-					~right();
+					delete right;
 				}
 		};
 		Node* root;
 		int height;
 		void handleOverflowAt(Node* r);
+		void handleUnderflowAt(Node * r);
 	public:
 		Bptree();
 		Bptree(Node* r, int h);
 		~Bptree();
 		void insert(int key, V val);
 		int getHeight();
-		// void erase(int key);
+		void erase(int key);
 		bool contains(int key);
 		// V search(int key);
 		// Bptree<V>* search(int keylb, int keyub);
@@ -255,6 +264,43 @@ void Bptree<V>::handleOverflowAt(Node* curr){
 }
 
 template<typename V>
+void Bptree<V>::handleUnderflowAt(Node* curr){
+	while(curr->size < 1+this->order/2){
+		if (curr == this->root){ // only when root is leaf or root has two leaves just merged
+			if (!this->root->isLeaf && this->root->size == 1){ // root has one leaf only 
+				this->root = ((InternalNode*)this->root)->children[0];
+				this->height --; 
+			}
+			return;
+		}
+		// find sibling (exist since not root)
+		Node *left = curr, *right = curr;
+		int i;
+		for ( i=0; i<curr->parent->size && curr->parent->children[i]!=curr; i++);
+		if (i==0) { right = curr->parent->children[1]; }
+		else { left = curr->parent->children[i-1]; }
+
+		// merge or redistribute
+		int oldRightKey = right->keys[0];
+		if (left->size + right->size >= (1+order/2) *2){ // redistribute and finish handling
+			if (left->isLeaf)
+				((LeafNode*)left)->redistributeWithNode((LeafNode*)right);
+			else ((InternalNode*)left)->redistributeWithNode((InternalNode*)right);
+			for (i=0; i<left->parent->size && left->parent->keys[i] != oldRightKey; i++);
+			left->parent->keys[i] = right->keys[0]; // update parent with new key after redistribution
+			return;
+		} else {	// merge and handle parent
+			if (left->isLeaf)
+				((LeafNode*)left)->mergeWithNode((LeafNode*)right);
+			else ((InternalNode*)left)->mergeWithNode((InternalNode*)right);
+			curr = left->parent;
+			((InternalNode*)curr)->eraseFromNode(oldRightKey);
+		}
+	}
+}
+
+
+template<typename V>
 Bptree<V>::Bptree() :
 order(3), root(new LeafNode(order)), height(0){
 };
@@ -280,7 +326,7 @@ void Bptree<V>::insert(int key, V val){
 	// find the correct node to insert
 	while(!curr->isLeaf){
 		int i;
-		for (i=curr->size-1; i>0 && curr->keys[i] >= key; i--);
+		for (i=curr->size-1; i>0 && curr->keys[i] > key; i--);
 		curr = ((InternalNode*)curr)->children[i];
 	}
 	((LeafNode*)curr)->insertIntoNode(key, val);
@@ -296,8 +342,35 @@ void Bptree<V>::insert(int key, V val){
 
 	// handle overflow
 	this->handleOverflowAt(curr);
-
 }
+
+template<typename V>
+void Bptree<V>::erase(int key){
+	Node* curr = this->root;
+	// find the correct node to erase
+	while(!curr->isLeaf){
+		int i;
+		for (i=curr->size-1; i>0 && curr->keys[i] > key; i--);
+		curr = ((InternalNode*)curr)->children[i];
+	}
+	((LeafNode*)curr)->eraseFromNode(key);
+	
+	// propagate key if first element is erased
+	if (curr->size > 0 && curr->keys[0] != key){
+		InternalNode* runner = curr->parent;
+		Node* last = curr;
+		int i=0;
+		while(i==0 && runner){
+			for(i=0; i<runner->size && runner->children[i]!=last; i++);
+			runner->keys[i] = runner->children[i]->keys[0];
+			last = runner;
+			runner = runner->parent;
+		}
+	}
+	// handle underflow
+	this->handleUnderflowAt(curr);
+}
+
 
 template<typename V>
 void Bptree<V>::join(Bptree<V>* that){
@@ -423,7 +496,7 @@ void Bptree<V>::printValues(){
 	while(curr){
 		std::cout << "[";
 		for (int i=0; i<curr->size; i++) 
-			std::cout << " " << curr->keys[i];
+			std::cout << "(" << curr->keys[i]<<" ,"<< ((LeafNode*)curr)->values[i]<<")" ;
 		std::cout << "]";
 		curr = ((LeafNode*)curr)->next;
 	}
