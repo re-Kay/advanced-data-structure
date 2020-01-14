@@ -2,7 +2,6 @@
 #define BPTREE_H
 
 #include<vector>
-#include<stack>
 #include<iostream>
 
 // now assume integer key, user defined type value
@@ -82,6 +81,7 @@ class Bptree{
 						for(int i=0; i<numToMove; i++){ // move from right node to left node
 							this->keys[this->size + i] = right->keys[i];
 							this->children[this->size + i]=right->children[i];
+							right->children[i]->parent = this;
 						}
 						for (int i=numToMove; i < right->size; i++){
 							right->keys[i-numToMove] = right->keys[i];
@@ -98,6 +98,7 @@ class Bptree{
 						for(int i=1; i<=numToMove; i++){
 							right->keys[numToMove - i] = this->keys[this->size - i];
 							right->children[numToMove - i] = this->children[this->size - i];
+							this->children[this->size - i]->parent = right;
 						}
 						this->size -= numToMove;
 						right->size += numToMove;
@@ -111,6 +112,7 @@ class Bptree{
 					for(i=0; i<right->size; i++){ // move everything to left node
 						this->keys[this->size + i] = right->keys[i];
 						this->children[this->size + i]=right->children[i];
+						right->children[i]->parent = this;
 					}
 					this->size += right->size;
 					delete right;
@@ -160,7 +162,7 @@ class Bptree{
 					int i;
 					for(i=0; i<this->size && this->keys[i] != key; i++);
 					if (i < this->size){ //found
-						for (int j=i; j < this->size; j++){
+						for (int j=i; j < this->size-1; j++){
 							this->keys[j] = this->keys[j+1];
 							this->values[j] = this->values[j+1];
 						}
@@ -217,13 +219,12 @@ class Bptree{
 		int getHeight();
 		void erase(int key);
 		bool contains(int key);
-		// V search(int key);
-		// Bptree<V>* search(int keylb, int keyub);
-		// data pred(int key);
-		// data succ(int key);
-		// data findWithMinKey();
-		// data findWithMaxKey();
-		// std::pair<Bptree<V>*, Bptree<V>*> split(int key);
+		Bptree<V>* search(int key);
+		Bptree<V>* search(int keylb, int keyub);
+		Bptree<V>* splitWithKeySmallerThan(int key);
+		Bptree<V>* splitWithKeyAtLeast(int key);
+		Bptree<V>* findWithMinKey();
+		Bptree<V>* findWithMaxKey();
 		void join(Bptree<V>* anotherTree);
 		void printValues();
 		void printTree();
@@ -354,9 +355,8 @@ void Bptree<V>::erase(int key){
 		curr = ((InternalNode*)curr)->children[i];
 	}
 	((LeafNode*)curr)->eraseFromNode(key);
-	
 	// propagate key if first element is erased
-	if (curr->size > 0 && curr->keys[0] != key){
+	if (curr->size > 0){
 		InternalNode* runner = curr->parent;
 		Node* last = curr;
 		int i=0;
@@ -371,6 +371,60 @@ void Bptree<V>::erase(int key){
 	this->handleUnderflowAt(curr);
 }
 
+template<typename V>
+Bptree<V>* Bptree<V>::search(int key){
+	Node* curr = this->root;
+	Bptree<V>* temp = new Bptree();
+	// find the correct node
+	while(!curr->isLeaf){
+		int i;
+		for (i=curr->size-1; i>0 && curr->keys[i] > key; i--);
+		curr = ((InternalNode*)curr)->children[i];
+	}
+	for (int i=0; i<curr->size;i++) 
+		if (curr->keys[i] == key) {
+			temp->insert(key, ((LeafNode*)curr)->values[i]);
+			break;
+		}
+	return temp;
+}
+
+template<typename V>
+Bptree<V>* Bptree<V>::search(int keylb, int keyub){
+	Bptree<V>* left = this->splitWithKeySmallerThan(keyub);
+	return left->splitWithKeyAtLeast(keylb);
+}
+
+template<typename V>
+Bptree<V>* Bptree<V>::splitWithKeyAtLeast(int key){
+	return new Bptree();
+}
+
+template<typename V>
+Bptree<V>* Bptree<V>::splitWithKeySmallerThan(int key){
+	return new Bptree();
+}
+
+
+template<typename V>
+Bptree<V>* Bptree<V>::findWithMinKey(){
+	Bptree<V>* temp = new Bptree();
+	if (this->root->size == 0) return temp;
+	Node* runner = root;
+	while (!runner->isLeaf) runner = ((InternalNode*)runner)->children[0];
+	temp->insert(runner->keys[0], ((LeafNode*)runner)->values[0]);
+	return temp;
+}
+
+template<typename V>
+Bptree<V>* Bptree<V>::findWithMaxKey(){
+	Bptree<V>* temp = new Bptree();
+	if (this->root->size == 0) return temp;
+	Node* runner = root;
+	while (!runner->isLeaf) runner = ((InternalNode*)runner)->children[runner->size - 1];
+	temp->insert(runner->keys[runner->size - 1], ((LeafNode*)runner)->values[runner->size - 1]);
+	return temp;
+}
 
 template<typename V>
 void Bptree<V>::join(Bptree<V>* that){
@@ -478,7 +532,7 @@ void Bptree<V>::join(Bptree<V>* that){
 template<typename V>
 bool Bptree<V>::contains(int key){
 	Node* curr = this->root;
-	// find the correct node to insert
+	// find the correct node
 	while(!curr->isLeaf){
 		int i;
 		for (i=curr->size-1; i>0 && curr->keys[i] >= key; i--);
@@ -517,5 +571,6 @@ void Bptree<V>::printTree(){ // inorder
 		}
 	
 }
+
 
 #endif
