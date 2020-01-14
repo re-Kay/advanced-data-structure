@@ -12,10 +12,11 @@ class Bptree{
 	public:
 		const int order;
 	private:
+		class InternalNode; //pre-declare for Node
 		class Node{
 			public:
 				int order;
-				Node* parent;
+				InternalNode* parent;
 				bool isLeaf;
 				std::vector<int> keys;
 				int size;
@@ -62,6 +63,54 @@ class Bptree{
 					this->children[0] = ch;
 					this->size++;
 				}
+				// only the left node call this method
+				// call only one of the nodes underflow, and have >= (1+order/2) *2 keys
+				void redistributeWithNode(InternalNode* right){
+					int numToMove = (this->size + right->size)/2 - this->size;
+					if (numToMove > 0){
+						for(int i=0; i<numToMove; i++){ // move from right node to left node
+							this->keys[this->size + i] = right->keys[i];
+							this->children[this->size + i]=right->children[i];
+						}
+						for (int i=numToMove; i < right->size; i++){
+							right->keys[i-numToMove] = right->keys[i];
+							right->children[i-numToMove] = right->children[i];
+						}
+						right->size -= numToMove;
+						this->size += numToMove;
+					} else {
+						numToMove *= -1;
+						for(int i=right->size - 1; i>=0; i--){ // move from left node to right node
+							right->keys[i+numToMove] = right->keys[i];
+							right->children[i+numToMove] = right->children[i];
+						}
+						for(int i=1; i<=numToMove; i++){
+							right->keys[numToMove - i] = this->keys[this->size - i];
+							right->children[numToMove - i] = this->children[this->size - i];
+						}
+						this->size -= numToMove;
+						right->size += numToMove;
+					}					
+				}
+
+				// only the left node call this method
+				// call only one of the nodes underflow, and have < (1+order/2) *2 keys
+				void mergeWithNode(InternalNode* right){
+					int i;
+					for(i=0; i<right->size; i++){ // move everything to left node
+						this->keys[this->size + i] = right->keys[i];
+						this->children[this->size + i]=right->children[i];
+					}
+					this->size += right->size;
+					InternalNode* parent = right->parent;
+					for (i=0;i<parent->size && parent->children[i]!=right; i++);
+					for (int j=i; j<parent->size; j++){ // update parent
+						parent->keys[j] = parent->keys[j+1];
+						parent->children[j] = parent->children[j+1];	
+					}
+					parent->size --;
+					~right();
+				}
 		};
 
 		class LeafNode : public Node{
@@ -89,12 +138,10 @@ class Bptree{
 				};
 				void insertIntoNode(int key, V value){
 					int i;
-					for (i=this->size-1; i>=0; i--){
+					for (i=this->size-1; i>=0 && this->keys[i] >= key; i--){
 						if (this->keys[i] == key){
 							this->values[i] = value;
 							return;
-						}else if (this->keys[i] < key){
-							break;
 						}
 					}
 					for(int j=this->size-1; j>i; j--){
@@ -104,6 +151,50 @@ class Bptree{
 					this->keys[i+1] = key;
 					this->values[i+1] = value;
 					this->size++;
+				}
+				void redistributeWithNode(LeafNode* right){
+					int numToMove = (this->size + right->size)/2 - this->size;
+					if (numToMove > 0){
+						for(int i=0; i<numToMove; i++){ // move from right node to left node
+							this->keys[this->size + i] = right->keys[i];
+							this->values[this->size + i]=right->values[i];
+						}
+						for (int i=numToMove; i < right->size; i++){
+							right->keys[i-numToMove] = right->keys[i];
+							right->values[i-numToMove] = right->values[i];
+						}
+						right->size -= numToMove;
+						this->size += numToMove;
+					} else {
+						numToMove *= -1;
+						for(int i=right->size - 1; i>=0; i--){ // move from left node to right node
+							right->keys[i+numToMove] = right->keys[i];
+							right->values[i+numToMove] = right->values[i];
+						}
+						for(int i=1; i<=numToMove; i++){
+							right->keys[numToMove - i] = this->keys[this->size - i];
+							right->values[numToMove - i] = this->values[this->size - i];
+						}
+						this->size -= numToMove;
+						right->size += numToMove;
+					}	
+				}
+				void mergeWithNode(LeafNode* right){
+					int i;
+					for(i=0; i<right->size; i++){ // move everything to left node
+						this->keys[this->size + i] = right->keys[i];
+						this->values[this->size + i]=right->values[i];
+					}
+					this->size += right->size;
+					this->next = right->next;
+					InternalNode* parent = right->parent;
+					for (i=0;i<parent->size && parent->children[i]!=right; i++);
+					for (int j=i; j<parent->size; j++){ // update parent
+						parent->keys[j] = parent->keys[j+1];
+						parent->children[j] = parent->children[j+1];	
+					}
+					parent->size --;
+					~right();
 				}
 		};
 		Node* root;
@@ -117,7 +208,7 @@ class Bptree{
 		int getHeight();
 		// void erase(int key);
 		bool contains(int key);
-		//V search(int key);
+		// V search(int key);
 		// Bptree<V>* search(int keylb, int keyub);
 		// data pred(int key);
 		// data succ(int key);
@@ -152,11 +243,11 @@ void Bptree<V>::handleOverflowAt(Node* curr){
 			if (curr->isLeaf){
 				LeafNode* right = ((LeafNode*)curr)->split();
 				right->parent = curr->parent;
-				((InternalNode*)curr->parent)->insertIntoNode(right->keys[0], right);
+				curr->parent->insertIntoNode(right->keys[0], right);
 			} else {
 				InternalNode* right = ((InternalNode*)curr)->split();
 				right->parent = curr->parent;
-				((InternalNode*)curr->parent)->insertIntoNode(right->keys[0], right);
+				curr->parent->insertIntoNode(right->keys[0], right);
 			}
 			curr = curr->parent;
 		}
@@ -255,10 +346,10 @@ void Bptree<V>::join(Bptree<V>* that){
 			right->values[0] = ((LeafNode*)this->root)->values[0];
 			right->size++;
 			// propagate leftmost key
-			InternalNode* runner = (InternalNode*)right->parent;
+			InternalNode* runner = right->parent;
 			while (runner){
 				runner->keys[0] = this->root->keys[0];
-				runner = (InternalNode*)runner->parent;
+				runner = runner->parent;
 			}
 			that->handleOverflowAt(right);
 			// transfer info
@@ -275,10 +366,10 @@ void Bptree<V>::join(Bptree<V>* that){
 		curr->children[0] = this->root;
 		curr->size++;
 		// propagate leftmost key
-		InternalNode* runner = (InternalNode*)curr->parent;
+		InternalNode* runner = curr->parent;
 		while (runner){
 			runner->keys[0] = this->root->keys[0];
-			runner = (InternalNode*)runner->parent;
+			runner = runner->parent;
 		}
 		// handle overflow
 		that->handleOverflowAt(curr);
