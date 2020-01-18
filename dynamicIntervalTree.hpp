@@ -9,10 +9,18 @@ class DynamicIntervalTree{
     private:
         typedef std::pair<int, int> Interval;
         struct xCmp{
-            bool operator ()(const Interval& s1, const Interval& s2){ return s1.first < s2.first; };
+            bool operator ()(const Interval& s1, const Interval& s2){ 
+                if (s1.first == s2.first)
+                    return s1.second < s2.second;
+                return s1.first < s2.first; 
+            };
         };
         struct yCmp{
-            bool operator ()(const Interval& s1, const Interval& s2){ return s1.second > s2.second; };
+            bool operator ()(const Interval& s1, const Interval& s2){ 
+                if (s1.second == s2.second)
+                    return s1.first > s2.first;    
+                return s1.second > s2.second; 
+            };
         };
         class Node{
             public:
@@ -29,12 +37,15 @@ class DynamicIntervalTree{
         Node* leftRotate(Node* r);
         Node* rightRotate(Node* r);
         int getHeight(Node* r);
+        void printNode(Node* r);
+        int cntInterval(Node* r);
     public:
         DynamicIntervalTree();
         DynamicIntervalTree(std::vector<Interval> intervals);
         void insert(Interval s);
         std::vector<Interval> query(int q);
         void printStabbingSet(int q);
+        void printBST();
 };
 
 DynamicIntervalTree::DynamicIntervalTree()
@@ -92,9 +103,10 @@ void DynamicIntervalTree::printStabbingSet(int q){
 void DynamicIntervalTree::insertIntervalIntoNode(Interval s){
     int x=s.first;
     int y=s.second;
+    int w;
     Node* runner = this->root;
     while(runner){
-        int w = runner->val;
+        w = runner->val;
         if (x<=w && w<=y){
             runner->xsorted.insert({s, 0});
             runner->ysorted.insert({s, 0});
@@ -146,13 +158,14 @@ DynamicIntervalTree::Node* DynamicIntervalTree::leftRotate(Node* r){
     r->right = temp->left;
     temp->left = r;
     // move interval upwards
-    for (auto itr=r->ysorted.begin(); itr != r->ysorted.end(); itr++){
-        if (itr->first.second >= temp->val){
-            r->xsorted.erase(itr->first);
-            r->ysorted.erase(itr->first);
-            temp->xsorted.insert({itr->first, 0});
-            temp->ysorted.insert({itr->first, 0});
-        } else break;
+    std::vector<Interval> toBeRemoved;
+    for (auto itr=r->ysorted.begin(); itr != r->ysorted.end() && itr->first.second >= temp->val; itr++)
+        toBeRemoved.push_back(itr->first);
+    for (Interval s:toBeRemoved){
+        r->xsorted.erase(s);
+        r->ysorted.erase(s);
+        temp->xsorted.insert({s, 0});
+        temp->ysorted.insert({s, 0});
     }
 
     // update height
@@ -169,16 +182,16 @@ DynamicIntervalTree::Node* DynamicIntervalTree::rightRotate(Node* r){
     Node* temp = r->left;
     r->left = temp->right;
     temp->right = r;
-
-    for (auto itr=r->xsorted.begin(); itr != r->xsorted.end(); itr++){
-        if (itr->first.first <= temp->val){
-            r->xsorted.erase(itr->first);
-            r->ysorted.erase(itr->first);
-            temp->xsorted.insert({itr->first, 0});
-            temp->ysorted.insert({itr->first, 0});
-        } else break;
+    std::vector<Interval> toBeRemoved;
+    for (auto itr=r->xsorted.begin(); itr != r->xsorted.end()&&itr->first.first <= temp->val; itr++)
+        toBeRemoved.push_back(itr->first);
+    
+    for (Interval s:toBeRemoved){
+        r->xsorted.erase(s);
+        r->ysorted.erase(s);
+        temp->xsorted.insert({s, 0});
+        temp->ysorted.insert({s, 0});
     }
-
     int lh = getHeight(r->left);
     int rh = getHeight(r->right);
     r->height = (lh>rh)? lh+1 : rh+1;
@@ -188,5 +201,26 @@ DynamicIntervalTree::Node* DynamicIntervalTree::rightRotate(Node* r){
     return temp;
 }
 
+void DynamicIntervalTree::printBST(){
+    printNode(this->root);
+    std::cout << std::endl;
+}
 
+void DynamicIntervalTree::printNode(Node* r){
+    if (!r) {
+        std::cout<<"()";
+        return;
+    }
+    std::cout<< "(" << r->val;
+    printNode(r->left);
+    printNode(r->right);
+    std::cout<<")";
+}
+
+int DynamicIntervalTree::cntInterval(Node* r){
+    if (!r) return 0;
+    int a = cntInterval(r->left);
+    int b = cntInterval(r->right);
+    return a+b+r->xsorted.size();
+}
 #endif
