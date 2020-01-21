@@ -1,12 +1,13 @@
 # Advanced data structure
 
-This project aims to build several advanced data structures that are covered in lecture. Topic includes b+ tree, interval tree, seqment tree, kd-tree, etc.
+This project aims to build several advanced data structures that are covered in lecture. Topic includes b+ tree, interval tree, segment tree, kd-tree, etc.
 
 Throughout the project, we will build on top of C++ STL, and hopefully learn some concepts like template, class, etc.
 
 List of data structure:
-* [B+ Tree](#B+-Tree)
-* [Interval tree](#Interval-Tree-(1D))
+* [B+ Tree](#b-tree)
+* [Interval tree](#interval-tree-1d)
+* [Segment tree](#segment-tree)
 
 ## B+ Tree
 B+ tree is a tree whose nodes have m/2 to m children, while all data are stored at the leaf nodes. B+ tree currently supports
@@ -30,5 +31,17 @@ Dynamic interval tree is implemented by AVL tree, together with red-black tree(b
 * insert, O(log n) time
 * query, O(log n +k) time, where k is the output size
 * ~~erase, O(log n)~~
+
+[Go top](#Advanced-data-structure)
+## Segment Tree
+Static segment tree.... Static segment tree currently supports:
+* construct, O(n log n) time
+* query, O(log n + k) time, where k is the output size
+
+Dynamic segment tree is implemented via logarithm method. Dynamic segment tree currently supports:
+* construct, O(n log n) time
+* (in progress) insert, O(log^2 n) amortized time
+* ~~deletion, O(log n) amortized time~~
+* query, O(log^2 n + k) time
 
 [Go top](#Advanced-data-structure)
