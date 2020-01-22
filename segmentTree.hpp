@@ -3,6 +3,7 @@
 #include "staticSegmentTree.hpp"
 #include <vector>
 #include <list>
+#include <iostream>
 
 class SegmentTree{
     private:
@@ -23,6 +24,7 @@ class SegmentTree{
         SegmentTree(Segments sl);
         void insert(Segment s);
         Segments query(int q);
+        void print();
 };
 
 SegmentTree::SegmentTree(){
@@ -38,6 +40,7 @@ SegmentTree::SegmentTree(Segments sl){
     Record temp(size);
     temp.segmentSet.assign(sl.begin(), sl.end());
     temp.segTree = StaticSegmentTree(sl);
+    temp.isempty = false;
     tree.push_back(temp);
 };
 
@@ -55,22 +58,41 @@ SegmentTree::Segments SegmentTree::query(int q){
 
 void SegmentTree::insert(Segment s){
     // find the proper segment tree to rebuild
-    int p;
-
+    int i;
+    int newSize = 0;
+    std::list<Segment> toBeMoved;
     // lazy delete
-    for (int i=0; i<p; i++){
-        tree[i].isempty = true;
+    for (i=0; i<tree.size(); i++){
+        newSize += tree[i].size();
+        if (1+newSize > tree[i].MAXSIZE){
+            if (!tree[i].isempty){
+                toBeMoved.splice(toBeMoved.end(), tree[i].segmentSet);
+                tree[i].segmentSet.clear();
+            }
+            tree[i].isempty = true;
+        } else break;
     }
-
+    toBeMoved.push_back(s);
     // rebuild
     int size;
-    if (p==tree.size()){
-        size = tree[tree.size()-1].MAXSIZE << 1;
+    if (i==tree.size()){
+        size = 1 << i;
         Record temp(size);
-        if (p==tree.size) tree.push_back(temp);
+        if (i==tree.size()) tree.push_back(temp);
     }
-    tree[p].isempty = false;
-    tree[p].segmentSet = {};
-    tree[p].segTree = StaticSegmentTree();
+    tree[i].isempty = false;
+    tree[i].segmentSet.splice(tree[i].segmentSet.end(), toBeMoved);
+    Segments segVec(tree[i].segmentSet.begin(), tree[i].segmentSet.end());
+    tree[i].segTree = StaticSegmentTree(segVec);
+}
+
+void SegmentTree::print(){
+    for (int i=0; i<tree.size(); i++){
+        std::cout<< "Node "<< i<<" :[";
+        for (auto s:tree[i].segmentSet){
+            std::cout << "(" << s.first << ", "<< s.second << ")";
+        }
+        std::cout<< "]\n";
+    }
 }
 #endif
