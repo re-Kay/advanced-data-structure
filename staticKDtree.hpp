@@ -32,6 +32,7 @@ class StaticKDTree{
         };
         Node* treeBuilder(Points::iterator &begin, Points::iterator &end, int length,int index);
         Node* root;
+        Points::iterator partition(Points::iterator begin, Points::iterator end, int length, int index);
         Points queryHelper(Node* r, const Point &bl, const Point &tr);
         bool isOverlapped(const Point &bl1, const Point &tr1, const Point &bl2, const Point &tr2);
     public:
@@ -60,14 +61,24 @@ StaticKDTree::Node* StaticKDTree::treeBuilder(Points::iterator &begin, Points::i
         temp->rectangleBound_bl = temp->rectangleBound_tr = temp->data;
         return temp;
     }
-    std::sort(begin, end, Comparator(index));
-    int half = length/2;
-    Points::iterator mid = begin+half;
+    int attemp = 0;
+    int dist;
+    Points::iterator mid;
+    while (length >= 10 && attemp < 6) { // in 6n time, with 95% success, in practice 99.95% success
+        mid = partition(begin, end, length, index);
+        dist = std::distance(begin, mid);
+        if (dist>= 0.3* length && dist <= 0.7*length) break;
+        attemp ++;
+    }
+    if (length < 10 || attemp == 6){ // worst case O(nlogn), if length<10, then O(1)
+        std::sort(begin, end, Comparator(index));
+        dist = length/2;
+        mid = begin + dist;
+    }
     double median = mid->at(index);
-    
     temp->location = median;
-    temp->left = treeBuilder(begin, mid, half, (index+1)%dim);
-    temp->right = treeBuilder(mid, end, length-half, (index+1)%dim);
+    temp->left = treeBuilder(begin, mid, dist, (index+1)%dim);
+    temp->right = treeBuilder(mid, end, length-dist, (index+1)%dim);
     for (int i=0; i<dim; i++){
         double v;
         if (temp->left->rectangleBound_bl[i] < temp->right->rectangleBound_bl[i])
@@ -81,6 +92,26 @@ StaticKDTree::Node* StaticKDTree::treeBuilder(Points::iterator &begin, Points::i
     }
     return temp;
 };
+
+StaticKDTree::Points::iterator StaticKDTree::partition(Points::iterator begin, Points::iterator end, int length, int index){
+    int p = rand() % length; // random pivot
+    Points::iterator temp = begin;
+    std::advance(temp, p);
+    std::iter_swap(begin, temp); // make random pivot to first element
+    Points::iterator l = begin;
+    Points::iterator r = end;
+    double pivot = l->at(index);
+    --end;
+    while(true){
+        do {++l; } while(l->at(index) <= pivot && l<end);
+        do {--r; } while(r->at(index) > pivot);
+        if (l>=r) break;
+        std::iter_swap(l,r);
+    }  
+    std::iter_swap(begin, r);
+    return r; 
+}
+
 
 StaticKDTree::Points StaticKDTree::query(const Point &bl, const Point &tr){
     return queryHelper(root, bl, tr);
