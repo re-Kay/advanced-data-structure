@@ -48,14 +48,14 @@ Dynamic segment tree is implemented via logarithmic method. It takes O(n log<sup
 
 [Go top](#Advanced-data-structure)
 ## K-d Tree
-K-d tree stores high dimension points in O(n) space and answers orthogonal range query efficiently. It is a binary tree where points are separated evenly to store in the subtree. Static k-d tree currently supports:
+K-d tree stores high dimension points in O(n) space and answers orthogonal range query efficiently. It is a binary tree where points are separated evenly to store in the subtree. We use random partition to separate the point, and it successes to partition evenly with high probability. Static k-d tree currently supports:
 Suppose there are n points in k-dimensional space.
-* (In progress to optimize) construct, O(n log<sup>2</sup> n)
-* query, O($$\sqrt{n}$$)
+* construct, O(n log n) average time, O(n log<sup>2</sup> n) worst time
+* query, O(n<sup>1-1/d</sup> + k)
 
 Dynamic k-d tree is implemented via logarithmic method. It takes O(n) space. Dynamic segment tree currently supports:
-* construct, O(n log n) time
+* construct, O(n log n) average time
 * insert, O(log<sup>2</sup> n) amortized time
 * ~~deletion, O(log<sup>2</sup> n) amortized time~~
-* query, O(log<sup>2</sup> n + k) time
+* query, O(n<sup>1-1/d</sup> + k) time
 [Go top](#Advanced-data-structure)
